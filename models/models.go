@@ -1,22 +1,22 @@
 package models
 
 type Brand struct {
-	ID        int32  `json:"id"`
-	Name      string `json:"name"`
+	ID        int64  `json:"id"`
+	Name      string `json:"name" form:"name" validate:"required,max=255,min=3"`
 	CreatedAt string `json:"created_at"`
 }
 
 type Product struct {
 	ID        int64  `json:"id"`
-	BrandId   int32  `json:"brand_id"`
-	Name      string `json:"name"`
-	Price     int16  `json:"price"`
+	BrandId   int64  `json:"brandId" form:"brandId" validate:"required,numeric"`
+	Name      string `json:"name" form:"name" validate:"required,max=255,min=3"`
+	Price     int64  `json:"price" form:"price" validate:"required,numeric"`
 	CreatedAt string `json:"created_at"`
 }
 
 type Customer struct {
 	ID        int64  `json:"id"`
-	Name      string `json:"name"`
+	Name      string `json:"name" form:"name" validate:"required,max=255,min=3"`
 	CreatedAt string `json:"created_at"`
 }
 

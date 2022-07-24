@@ -32,12 +32,15 @@ func Router() *mux.Router {
 
 	api := router.PathPrefix("/api").Subrouter()
 	users := api.PathPrefix("/user").Subrouter()
-	users.Path("/{id}").Methods(http.MethodGet).HandlerFunc(middleware.GetUser)
-	// users.Path("/").Methods(http.MethodGet).HandlerFunc(middleware.GetAllUser)
-	users.HandleFunc("", middleware.GetAllUser).Methods(http.MethodGet)
+	brands := api.PathPrefix("/brand").Subrouter()
+	products := api.PathPrefix("/product").Subrouter()
+	// users.Path("/{id}").Methods(http.MethodGet).HandlerFunc(middleware.GetUser)
+	// users.Path("").Methods(http.MethodGet).HandlerFunc(middleware.GetAllUser)
 	users.Path("").Methods(http.MethodPost).HandlerFunc(middleware.CreateUser)
-	users.Path("/{id}").Methods(http.MethodPut).HandlerFunc(middleware.UpdateUser)
-	users.Path("/{id}").Methods(http.MethodDelete).HandlerFunc(middleware.DeleteUser)
+	brands.Path("").Methods(http.MethodPost).HandlerFunc(middleware.CreateBrand)
+	products.Path("").Methods(http.MethodPost).HandlerFunc(middleware.CreateProduct)
+	// users.Path("/{id}").Methods(http.MethodPut).HandlerFunc(middleware.UpdateUser)
+	// users.Path("/{id}").Methods(http.MethodDelete).HandlerFunc(middleware.DeleteUser)
 
 	return router
 }
