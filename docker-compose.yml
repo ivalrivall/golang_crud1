@@ -1,0 +1,30 @@
+version: '3.5'
+
+networks:
+  frontend:
+    driver: ${NETWORKS_DRIVER}
+  backend:
+    driver: ${NETWORKS_DRIVER}
+
+volumes:
+  postgres:
+    driver: ${VOLUMES_DRIVER}
+
+services:
+
+### PostgreSQL ###########################################
+    postgres:
+      build:
+        context: ./postgres
+        args:
+          - POSTGRES_VERSION=${POSTGRES_VERSION}
+      volumes:
+        - ${DATA_PATH_HOST}/postgres:/var/lib/postgresql/data
+      ports:
+        - "${POSTGRES_PORT}:5432"
+      environment:
+        - POSTGRES_DB=${POSTGRES_DB}
+        - POSTGRES_USER=${POSTGRES_USER}
+        - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      networks:
+        - backend
