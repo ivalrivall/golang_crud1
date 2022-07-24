@@ -6,12 +6,16 @@ This project is simple CRUD application built in golang and using PostgreSQL as 
 1. Go/Golang
 2. API Tools like Postman / Insomnia / https://hoppscotch.io (need install extension proxy from it)
 3. Install and running latest stable docker
-4. Add database dependency by running this command
+4. Copy env
+```bash
+cp .env.example .env
+```
+5. Add database dependency by running this command
 ```bash
 docker compose up -d
 make migrateup
 ```
-5. Running app
+6. Running app
 ```bash
 go run main.go
 ```
