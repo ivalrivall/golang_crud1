@@ -1,3 +1,9 @@
+DROP TABLE IF EXISTS brands cascade;
+DROP TABLE IF EXISTS products cascade;
+DROP TABLE IF EXISTS customers cascade;
+DROP TABLE IF EXISTS transactions cascade;
+DROP TABLE IF EXISTS orders cascade;
+
 CREATE TABLE "brands" (
   "id" bigserial PRIMARY KEY,
   "name" varchar NOT NULL,
