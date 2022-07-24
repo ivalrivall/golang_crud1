@@ -7,14 +7,14 @@ CREATE TABLE "brands" (
 CREATE TABLE "products" (
   "id" bigserial PRIMARY KEY,
   "brand_id" bigint NOT NULL,
-  "name" bigint NOT NULL,
+  "name" varchar NOT NULL,
   "price" bigint NOT NULL,
   "created_at" timestamptz NOT NULL DEFAULT (now())
 );
 
 CREATE TABLE "customers" (
   "id" bigserial PRIMARY KEY,
-  "name" bigint NOT NULL,
+  "name" varchar NOT NULL,
   "created_at" timestamptz NOT NULL DEFAULT (now())
 );
 
