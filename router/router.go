@@ -34,11 +34,11 @@ func Router() *mux.Router {
 	users := api.PathPrefix("/user").Subrouter()
 	brands := api.PathPrefix("/brand").Subrouter()
 	products := api.PathPrefix("/product").Subrouter()
-	// users.Path("/{id}").Methods(http.MethodGet).HandlerFunc(middleware.GetUser)
 	// users.Path("").Methods(http.MethodGet).HandlerFunc(middleware.GetAllUser)
 	users.Path("").Methods(http.MethodPost).HandlerFunc(middleware.CreateUser)
 	brands.Path("").Methods(http.MethodPost).HandlerFunc(middleware.CreateBrand)
 	products.Path("").Methods(http.MethodPost).HandlerFunc(middleware.CreateProduct)
+	products.Path("/{id}").Methods(http.MethodGet).HandlerFunc(middleware.GetProduct)
 	// users.Path("/{id}").Methods(http.MethodPut).HandlerFunc(middleware.UpdateUser)
 	// users.Path("/{id}").Methods(http.MethodDelete).HandlerFunc(middleware.DeleteUser)
 

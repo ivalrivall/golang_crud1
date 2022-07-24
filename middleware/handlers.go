@@ -203,9 +203,9 @@ func CreateProduct(w http.ResponseWriter, r *http.Request) {
 	SuccessRespond(res, w)
 }
 
-// GetBrand will return a single brand by its id
-func GetBrand(w http.ResponseWriter, r *http.Request) {
-	// get the userid from the request params, key is "id"
+// GetProduct will return a single product by its id
+func GetProduct(w http.ResponseWriter, r *http.Request) {
+	// get the id from the request params, key is "id"
 	params := mux.Vars(r)
 
 	// convert the id type from string to int
@@ -217,19 +217,19 @@ func GetBrand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// call the getUser function with user id to retrieve a single user
-	user, err := getBrand(int64(id))
+	// call the getProduct function with product id to retrieve a single product
+	product, err := getProduct(int64(id))
 
 	if err != nil {
-		log.Fatalf("Unable to get user. %v", err)
-		ErrorResponse(400, "Unable to get brand. %v", w)
+		log.Fatalf("Unable to get product. %v", err)
+		ErrorResponse(400, "Unable to get product. %v", w)
 		return
 	}
 
 	// send the response
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(user)
+	json.NewEncoder(w).Encode(product)
 }
 
 // GetAllUser will return all the users
@@ -415,7 +415,7 @@ func insertProduct(p models.Product) int64 {
 	return lastInsertId
 }
 
-// get one user from the DB by its userid
+// get one brand from the DB by its id
 func getBrand(id int64) (models.Brand, error) {
 	// create the postgres db connection
 	db := createConnection()
@@ -423,7 +423,7 @@ func getBrand(id int64) (models.Brand, error) {
 	// close the db connection
 	defer db.Close()
 
-	// create a user of models.User type
+	// create a brand of models.Brand type
 	var brand models.Brand
 
 	// create the select sql query
@@ -447,6 +447,40 @@ func getBrand(id int64) (models.Brand, error) {
 
 	// return empty brand on error
 	return brand, err
+}
+
+// get one product from the DB by its id
+func getProduct(id int64) (models.Product, error) {
+	// create the postgres db connection
+	db := createConnection()
+
+	// close the db connection
+	defer db.Close()
+
+	// create a product of models.Product type
+	var product models.Product
+
+	// create the select sql query
+	sqlStatement := `SELECT * FROM products WHERE id=$1 LIMIT 1`
+
+	// execute the sql statement
+	row := db.QueryRow(sqlStatement, id)
+
+	// unmarshal the row object to product
+	err := row.Scan(&product.ID, &product.BrandId, &product.Name, &product.Price, &product.CreatedAt)
+
+	switch err {
+	case sql.ErrNoRows:
+		fmt.Println("No rows were returned!")
+		return product, nil
+	case nil:
+		return product, nil
+	default:
+		log.Fatalf("Unable to scan the row. %v", err)
+	}
+
+	// return empty product on error
+	return product, err
 }
 
 // get one user from the DB by its userid
