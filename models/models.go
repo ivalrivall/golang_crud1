@@ -29,7 +29,7 @@ type Transaction struct {
 
 type Order struct {
 	ID            int64  `json:"id"`
-	CustomerId    int64  `json:"customer_id"`
+	ProductId     int64  `json:"product_id"`
 	TransactionId int64  `json:"transaction_id"`
 	CreatedAt     string `json:"created_at"`
 }

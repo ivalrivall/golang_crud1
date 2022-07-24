@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json" // package to encode and decode the json into struct and vice versa
 	"fmt"
@@ -9,6 +10,8 @@ import (
 	"net/http" // used to access the request and response object of the api
 	"os"       // used to read the environment variable
 	"strconv"  // package used to covert string into int type
+	"strings"
+	"time"
 
 	"github.com/go-playground/validator"
 	"github.com/gorilla/mux"   // used to get the params from the route
@@ -50,6 +53,7 @@ func createConnection() *sql.DB {
 	return db
 }
 
+// create user and store to db
 func CreateUser(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	var input models.Customer
@@ -96,6 +100,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	SuccessRespond(res, w)
 }
 
+// create brand and store to db
 func CreateBrand(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	var input models.Brand
@@ -133,6 +138,7 @@ func CreateBrand(w http.ResponseWriter, r *http.Request) {
 	SuccessRespond(res, w)
 }
 
+// create product and store to db
 func CreateProduct(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	var input models.Product
@@ -176,15 +182,6 @@ func CreateProduct(w http.ResponseWriter, r *http.Request) {
 		ErrorResponse(400, message, w)
 		return
 	}
-
-	// convert the id type from string to int
-	// id, err := strconv.Atoi(input.BrandId)
-
-	// if err != nil {
-	// 	log.Fatalf("Unable to convert the string into int.  %v", err)
-	// 	ErrorResponse(500, "Unable to convert the string into int. %v", w)
-	// 	return
-	// }
 
 	brand, err := getBrand(input.BrandId)
 
@@ -326,7 +323,6 @@ func UpdateUser(w http.ResponseWriter, r *http.Request) {
 
 // DeleteUser delete user's detail in the postgres db
 func DeleteUser(w http.ResponseWriter, r *http.Request) {
-
 	// get the userid from the request params, key is "id"
 	params := mux.Vars(r)
 
@@ -355,6 +351,136 @@ func DeleteUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(res)
+}
+
+// CreateOrder create order
+type Products struct {
+	ProductId int64 `json:"productId"`
+}
+type Orders struct {
+	Products   []Products `json:"products"`
+	CustomerId int64      `json:"customerId"`
+}
+
+type Value []interface{} // defined in the sql package
+
+func CreateOrder(w http.ResponseWriter, r *http.Request) {
+	// decoder := json.NewDecoder(r.Body)
+	var o Orders
+
+	// Try to decode the request body into the struct. If there is an error,
+	// respond to the client with the error message and a 400 status code.
+	err := json.NewDecoder(r.Body).Decode(&o)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Do something with the Person struct...
+	// fmt.Fprintf(w, "Person: %+v", len(o.Products))
+
+	// create the insert sql query
+	// returning userid will return the id of the inserted user
+	sqlStatement := `INSERT INTO transactions (customer_id, amount) VALUES ($1, $2) RETURNING id`
+
+	// the inserted id will store in this id
+	var lastInsertId int64
+
+	// create the postgres db connection
+	db := createConnection()
+
+	// close the db connection
+	// defer db.Close()
+
+	// execute the sql statement
+	// Scan function will save the insert id in the id
+	e := db.QueryRow(sqlStatement, o.CustomerId, 0).Scan(&lastInsertId)
+
+	if e != nil {
+		log.Fatalf("Unable to execute the query. %v", e)
+	}
+
+	query := `INSERT INTO orders (product_id, transaction_id) VALUES `
+
+	// vals := []interface{}{}
+	var inserts []string
+	params := []interface{}{}
+	// for i := 0; i < len(o.Products); i++ {
+	//   batch = append(batch, Value{row.ProductId, lastInsertId})
+	// }
+	// db.Exec("INSERT INTO orders (product_id, transaction_id) VALUES ?", batch)
+
+	for _, row := range o.Products {
+		query += "($1, $2),"
+		// vals = append(vals, row.ProductId, lastInsertId)
+		// inserts = append(inserts, "($1, $2)")
+		params = append(params, row.ProductId, lastInsertId)
+	}
+
+	//trim the last ,
+	query = query[0 : len(query)-1]
+
+	// queryVals := strings.Join(inserts, ",")
+	queryVals := strings.Join(inserts, ",")
+	query = query + queryVals
+	fmt.Println("query is", query)
+	fmt.Println("params is", params)
+	ctx, cancelfunc := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelfunc()
+	stmt, err := db.PrepareContext(ctx, query)
+	if err != nil {
+		fmt.Printf("Error %s when preparing SQL statement", err)
+		return
+	}
+	defer stmt.Close()
+	res, err := stmt.ExecContext(ctx, params...)
+	if err != nil {
+		fmt.Printf("Error %s when inserting row into products table", err)
+		return
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		fmt.Printf("Error %s when finding rows affected", err)
+		return
+	}
+	fmt.Printf("%d products created simulatneously", rows)
+
+	// //trim the last ,
+	// saveOrder = saveOrder[0 : len(saveOrder)-1]
+	// // saveOrder = strings.TrimSuffix(saveOrder, ",\n") + ";"
+
+	// //prepare the statement
+	// stmt, err := db.Prepare(saveOrder)
+
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	return
+	// }
+
+	// if stmt != nil {
+	// 	fmt.Println("stmt", stmt)
+	// }
+
+	// defer stmt.Close()
+
+	// // for j := 0; j < len(o.Products); j++ {
+	// // 	let := o.Products[j]
+	// // 	fmt.Println("let.ProductId", let.ProductId)
+	// // 	fmt.Println("lastInsertId", lastInsertId)
+	// // 	db.QueryRow(saveOrder, let.ProductId, lastInsertId)
+	// // }
+
+	// //format all vals at once
+	// res, er := stmt.Exec(vals...)
+	// if er != nil {
+	// 	fmt.Println("er", er)
+	// }
+	// fmt.Println(res)
+	// // fmt.Println(er)
+
+	// // res := make(map[string]interface{})
+	// // res["message"] = "Order created successfully with id " + strconv.Itoa(int(lastInsertId))
+	// // SuccessRespond(res, w)
 }
 
 /* =================== handler functions ==================== */
@@ -662,9 +788,7 @@ func deleteUser(id int64) int64 {
 	return rowsAffected
 }
 
-/**
-* response
- */
+// return error response
 func ErrorResponse(statusCode int, error string, writer http.ResponseWriter) {
 	//Create a new map and fill it
 	fields := make(map[string]interface{})
@@ -684,6 +808,7 @@ func ErrorResponse(statusCode int, error string, writer http.ResponseWriter) {
 	writer.Write(message)
 }
 
+// return success response
 func SuccessRespond(fields map[string]interface{}, writer http.ResponseWriter) {
 	fields["success"] = true
 	message, err := json.Marshal(fields)
