@@ -8,21 +8,21 @@ This project is simple CRUD application built in golang and using PostgreSQL as 
 3. Install and running latest stable docker
 4. Add database dependency by running this command
 ```bash
-$ docker compose up -d
-$ make migrateup
+docker compose up -d
+make migrateup
 ```
 5. Running app
 ```bash
-$ go run main.go
+go run main.go
 ```
 
 
 ## Cleanup
 1. Stop container and deleting
 ```bash
-$ docker compose down
+docker compose down
 ```
 2. Delete image
 ```bash
-$ docker image rm golang_crud1_postgres
+docker image rm golang_crud1_postgres
 ```
