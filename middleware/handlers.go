@@ -232,6 +232,35 @@ func GetProduct(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(product)
 }
 
+// GetProductByBrand will return products by brand id
+func GetProductByBrand(w http.ResponseWriter, r *http.Request) {
+	// get the id from the request params, key is "id"
+	params := mux.Vars(r)
+
+	// convert the id type from string to int
+	id, err := strconv.Atoi(params["id"])
+
+	if err != nil {
+		log.Fatalf("Unable to convert the string into int.  %v", err)
+		ErrorResponse(500, "Unable to convert the string into int. %v", w)
+		return
+	}
+
+	// call the getProductByBrand function by brand_id
+	products, err := getProductByBrand(int64(id))
+
+	if err != nil {
+		log.Fatalf("Unable to get products. %v", err)
+		ErrorResponse(400, "Unable to get products. %v", w)
+		return
+	}
+
+	// send the response
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(products)
+}
+
 // GetAllUser will return all the users
 func GetAllUser(w http.ResponseWriter, r *http.Request) {
 
@@ -328,7 +357,7 @@ func DeleteUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(res)
 }
 
-//------------------------- handler functions ----------------
+/* =================== handler functions ==================== */
 // insert one user in the DB
 func insertUser(user models.Customer) int64 {
 
@@ -359,6 +388,7 @@ func insertUser(user models.Customer) int64 {
 	return lastInsertId
 }
 
+// insert one brand
 func insertBrand(b models.Brand) int64 {
 	// create the postgres db connection
 	db := createConnection()
@@ -387,6 +417,7 @@ func insertBrand(b models.Brand) int64 {
 	return lastInsertId
 }
 
+// insert one product
 func insertProduct(p models.Product) int64 {
 	// create the postgres db connection
 	db := createConnection()
@@ -481,6 +512,49 @@ func getProduct(id int64) (models.Product, error) {
 
 	// return empty product on error
 	return product, err
+}
+
+func getProductByBrand(id int64) ([]models.Product, error) {
+	// create the postgres db connection
+	db := createConnection()
+
+	// close the db connection
+	defer db.Close()
+
+	// create a product of models.Product type
+	var products []models.Product
+
+	// create the select sql query
+	sqlStatement := `SELECT * FROM products WHERE brand_id=$1`
+
+	// execute the sql statement
+	rows, err := db.Query(sqlStatement, id)
+
+	if err != nil {
+		log.Fatalf("Unable to execute the query. %v", err)
+	}
+
+	// close the statement
+	defer rows.Close()
+
+	// iterate over the rows
+	for rows.Next() {
+		var product models.Product
+
+		// unmarshal the row object to user
+		err = rows.Scan(&product.ID, &product.BrandId, &product.Name, &product.Price, &product.CreatedAt)
+
+		if err != nil {
+			log.Fatalf("Unable to scan the row. %v", err)
+		}
+
+		// append the user in the users slice
+		products = append(products, product)
+
+	}
+
+	// return empty product on error
+	return products, err
 }
 
 // get one user from the DB by its userid

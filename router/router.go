@@ -39,6 +39,7 @@ func Router() *mux.Router {
 	brands.Path("").Methods(http.MethodPost).HandlerFunc(middleware.CreateBrand)
 	products.Path("").Methods(http.MethodPost).HandlerFunc(middleware.CreateProduct)
 	products.Path("/{id}").Methods(http.MethodGet).HandlerFunc(middleware.GetProduct)
+	products.Path("/brand/{id}").Methods(http.MethodGet).HandlerFunc(middleware.GetProductByBrand)
 	// users.Path("/{id}").Methods(http.MethodPut).HandlerFunc(middleware.UpdateUser)
 	// users.Path("/{id}").Methods(http.MethodDelete).HandlerFunc(middleware.DeleteUser)
 
