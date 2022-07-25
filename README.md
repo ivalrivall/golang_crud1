@@ -15,7 +15,11 @@ cp .env.example .env
 docker compose up -d
 make migrateup
 ```
-6. Running app
+6. Running seeder
+```
+go run main.go seed BrandSeed ProductSeed CustomerSeed
+```
+7. Running app
 ```bash
 go run main.go
 ```
