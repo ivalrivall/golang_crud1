@@ -9,7 +9,7 @@ import (
 
 func (s Seed) ProductSeed() {
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 20; i++ {
 		//prepare the statement
 		a := FakeStruct{}
 		f := faker.FakeData(&a)
