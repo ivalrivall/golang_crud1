@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json" // package to encode and decode the json into struct and vice versa
 	"fmt"
@@ -9,15 +8,14 @@ import (
 	"net/http" // used to access the request and response object of the api
 	"os"       // used to read the environment variable
 	"strconv"  // package used to covert string into int type
-	"strings"
-	"time"
 
 	"github.com/ivalrivall/golang_crud1/models" // models package where User schema is defined
 
 	"github.com/go-playground/validator"
 	"github.com/gorilla/mux"   // used to get the params from the route
 	"github.com/joho/godotenv" // package used to read the .env file
-	_ "github.com/lib/pq"      // postgres golang driver
+	"github.com/lib/pq"
+	_ "github.com/lib/pq" // postgres golang driver
 )
 
 // response format
@@ -366,122 +364,100 @@ type Orders struct {
 type Value []interface{} // defined in the sql package
 
 func CreateOrder(w http.ResponseWriter, r *http.Request) {
-	// decoder := json.NewDecoder(r.Body)
 	var o Orders
 
-	// Try to decode the request body into the struct. If there is an error,
-	// respond to the client with the error message and a 400 status code.
-	err := json.NewDecoder(r.Body).Decode(&o)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	errDecode := json.NewDecoder(r.Body).Decode(&o)
+	if errDecode != nil {
+		http.Error(w, errDecode.Error(), http.StatusBadRequest)
 		return
 	}
 
-	// Do something with the Person struct...
-	// fmt.Fprintf(w, "Person: %+v", len(o.Products))
+	transactionSql := `INSERT INTO transactions (customer_id, amount) VALUES ($1, $2) RETURNING id`
 
-	// create the insert sql query
-	// returning userid will return the id of the inserted user
-	sqlStatement := `INSERT INTO transactions (customer_id, amount) VALUES ($1, $2) RETURNING id`
+	var transactionId int64
 
-	// the inserted id will store in this id
-	var lastInsertId int64
-
-	// create the postgres db connection
 	db := createConnection()
 
-	// close the db connection
-	// defer db.Close()
+	errTrans := db.QueryRow(transactionSql, o.CustomerId, 0).Scan(&transactionId)
 
-	// execute the sql statement
-	// Scan function will save the insert id in the id
-	e := db.QueryRow(sqlStatement, o.CustomerId, 0).Scan(&lastInsertId)
-
-	if e != nil {
-		log.Fatalf("Unable to execute the query. %v", e)
+	if errTrans != nil {
+		log.Fatalf("Unable to execute the query. %v", errTrans)
 	}
 
-	query := `INSERT INTO orders (product_id, transaction_id) VALUES `
+	query := `INSERT INTO orders (product_id, transaction_id) VALUES ($1, $2) RETURNING id`
 
-	// vals := []interface{}{}
-	var inserts []string
-	params := []interface{}{}
-	// for i := 0; i < len(o.Products); i++ {
-	//   batch = append(batch, Value{row.ProductId, lastInsertId})
+	defer db.Close()
+	for j := 0; j < len(o.Products); j++ {
+		let := o.Products[j]
+		orderID := 0
+		fmt.Println("let.ProductId", let.ProductId)
+		fmt.Println("transactionId", transactionId)
+		errOrder := db.QueryRow(query, let.ProductId, transactionId).Scan(&orderID)
+		if errOrder != nil {
+			log.Fatalf("Unable to execute the query. %v", errOrder)
+		}
+		fmt.Println("orderID", orderID)
+	}
+
+	// inq := o.Products
+	var acc []int64
+	// a := []interface{}{
+	// 	o.Products
 	// }
-	// db.Exec("INSERT INTO orders (product_id, transaction_id) VALUES ?", batch)
-
-	for _, row := range o.Products {
-		query += "($1, $2),"
-		// vals = append(vals, row.ProductId, lastInsertId)
-		// inserts = append(inserts, "($1, $2)")
-		params = append(params, row.ProductId, lastInsertId)
+	// inq := json.Marshal(o.Products)
+	// fmt.Println("inq", o.Products)
+	for _, b := range o.Products {
+		// j, err := strconv.Atoi(b.ProductId)
+		// if err != nil {
+		// 	panic(err)
+		// }
+		acc = append(acc, b.ProductId)
 	}
-
-	//trim the last ,
-	query = query[0 : len(query)-1]
-
-	// queryVals := strings.Join(inserts, ",")
-	queryVals := strings.Join(inserts, ",")
-	query = query + queryVals
-	fmt.Println("query is", query)
-	fmt.Println("params is", params)
-	ctx, cancelfunc := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancelfunc()
-	stmt, err := db.PrepareContext(ctx, query)
-	if err != nil {
-		fmt.Printf("Error %s when preparing SQL statement", err)
-		return
+	fmt.Println("acc", acc)
+	// ac := strings.Trim(strings.Replace(fmt.Sprint(acc), " ", ",", -1), "[]")
+	// price := "0"
+	// stuff := []interface{ o.Products }{}
+	// sql := "SELECT price FROM products where id in (" + acc + ")"
+	// fmt.Println("SQL:", sql)
+	// sqlPrice := fmt.Sprintf("SELECT price FROM products where id in ($)", ac)
+	// stuff := []interface{}{&ac}
+	// sql := "SELECT price FROM products where id in ($1" + strings.Repeat(",$1", len(stuff)-1) + ")"
+	sql := "SELECT price FROM products where id in ($1);"
+	fmt.Println("SQL:", sql)
+	// var t2 = []int{}
+	// for _, i := range ac {
+	// 	j, err := strconv.Atoi(i)
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
+	// 	t2 = append(t2, j)
+	// }
+	stmt, errPrice := db.Query(sql, pq.Array(acc))
+	if errPrice != nil {
+		log.Fatalf("Unable to execute the query 1. %v", errPrice)
 	}
-	defer stmt.Close()
-	res, err := stmt.ExecContext(ctx, params...)
-	if err != nil {
-		fmt.Printf("Error %s when inserting row into products table", err)
-		return
-	}
-	rows, err := res.RowsAffected()
-	if err != nil {
-		fmt.Printf("Error %s when finding rows affected", err)
-		return
-	}
-	fmt.Printf("%d products created simulatneously", rows)
+	// rows, err := stmt.Query()
+	// if errPrice != nil {
+	// log.Fatalf("Unable to execute the query 2. %v", err)
+	// }
+	fmt.Println("priceRow", stmt)
+	return
 
-	// //trim the last ,
-	// saveOrder = saveOrder[0 : len(saveOrder)-1]
-	// // saveOrder = strings.TrimSuffix(saveOrder, ",\n") + ";"
-
-	// //prepare the statement
-	// stmt, err := db.Prepare(saveOrder)
-
-	// if err != nil {
-	// 	fmt.Println(err)
-	// 	return
+	// for j := 0; j < len(o.Products); j++ {
+	// 	let := o.Products[j]
+	// 	orderID := 0
+	// 	fmt.Println("let.ProductId", let.ProductId)
+	// 	fmt.Println("transactionId", transactionId)
+	// 	errP := db.QueryRow(getPriceProductSql, let.ProductId, transactionId).Scan(&orderID)
+	// 	if errP != nil {
+	// 		log.Fatalf("Unable to execute the query. %v", errP)
+	// 	}
+	// 	fmt.Println("orderID", orderID)
 	// }
 
-	// if stmt != nil {
-	// 	fmt.Println("stmt", stmt)
-	// }
-
-	// defer stmt.Close()
-
-	// // for j := 0; j < len(o.Products); j++ {
-	// // 	let := o.Products[j]
-	// // 	fmt.Println("let.ProductId", let.ProductId)
-	// // 	fmt.Println("lastInsertId", lastInsertId)
-	// // 	db.QueryRow(saveOrder, let.ProductId, lastInsertId)
-	// // }
-
-	// //format all vals at once
-	// res, er := stmt.Exec(vals...)
-	// if er != nil {
-	// 	fmt.Println("er", er)
-	// }
-	// fmt.Println(res)
-	// // fmt.Println(er)
-
-	// // res := make(map[string]interface{})
-	// // res["message"] = "Order created successfully with id " + strconv.Itoa(int(lastInsertId))
-	// // SuccessRespond(res, w)
+	res := make(map[string]interface{})
+	res["message"] = "Order created successfully with id " + strconv.Itoa(int(transactionId))
+	SuccessRespond(res, w)
 }
 
 /* =================== handler functions ==================== */
