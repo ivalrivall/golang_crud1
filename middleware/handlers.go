@@ -5,13 +5,14 @@ import (
 	"database/sql"
 	"encoding/json" // package to encode and decode the json into struct and vice versa
 	"fmt"
-	"go-postgres/models" // models package where User schema is defined
 	"log"
 	"net/http" // used to access the request and response object of the api
 	"os"       // used to read the environment variable
 	"strconv"  // package used to covert string into int type
 	"strings"
 	"time"
+
+	"github.com/ivalrivall/golang_crud1/models" // models package where User schema is defined
 
 	"github.com/go-playground/validator"
 	"github.com/gorilla/mux"   // used to get the params from the route

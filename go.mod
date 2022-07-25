@@ -1,4 +1,4 @@
-module go-postgres
+module github.com/ivalrivall/golang_crud1
 
 go 1.18
 

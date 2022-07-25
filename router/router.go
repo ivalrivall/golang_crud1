@@ -2,9 +2,10 @@ package router
 
 import (
 	"fmt"
-	"go-postgres/middleware"
 	"log"
 	"net/http"
+
+	"github.com/ivalrivall/golang_crud1/middleware"
 
 	"github.com/gorilla/mux"
 )

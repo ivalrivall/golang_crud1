@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"go-postgres/router"
 	"log"
 	"net/http"
+
+	"github.com/ivalrivall/golang_crud1/router"
 )
 
 func main() {
