@@ -18,7 +18,7 @@ func (s Seed) ProductSeed() {
 		}
 		stmt, _ := s.db.Prepare(`INSERT INTO products(name, brand_id, price) VALUES ($1, $2, $3)`)
 		// execute query
-		_, err := stmt.Exec(&a.Word, rand.Intn(5-1)+1, &a.NumU64)
+		_, err := stmt.Exec(&a.Word, rand.Intn(5-1)+1, rand.Intn(10000-1000)+1000)
 		if err != nil {
 			panic(err)
 		}
