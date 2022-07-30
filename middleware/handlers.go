@@ -8,14 +8,15 @@ import (
 	"net/http" // used to access the request and response object of the api
 	"os"       // used to read the environment variable
 	"strconv"  // package used to covert string into int type
+	"strings"
 
 	"github.com/ivalrivall/golang_crud1/models" // models package where User schema is defined
+	"github.com/samber/lo"
 
 	"github.com/go-playground/validator"
 	"github.com/gorilla/mux"   // used to get the params from the route
 	"github.com/joho/godotenv" // package used to read the .env file
-	"github.com/lib/pq"
-	_ "github.com/lib/pq" // postgres golang driver
+	_ "github.com/lib/pq"      // postgres golang driver
 )
 
 // response format
@@ -378,82 +379,66 @@ func CreateOrder(w http.ResponseWriter, r *http.Request) {
 
 	db := createConnection()
 
+	defer db.Close()
+
 	errTrans := db.QueryRow(transactionSql, o.CustomerId, 0).Scan(&transactionId)
 
 	if errTrans != nil {
 		log.Fatalf("Unable to execute the query. %v", errTrans)
 	}
 
-	query := `INSERT INTO orders (product_id, transaction_id) VALUES ($1, $2) RETURNING id`
+	querySaveOrder := `INSERT INTO orders (product_id, transaction_id) VALUES ($1, $2) RETURNING id`
 
-	defer db.Close()
 	for j := 0; j < len(o.Products); j++ {
 		let := o.Products[j]
 		orderID := 0
-		fmt.Println("let.ProductId", let.ProductId)
-		fmt.Println("transactionId", transactionId)
-		errOrder := db.QueryRow(query, let.ProductId, transactionId).Scan(&orderID)
+		errOrder := db.QueryRow(querySaveOrder, let.ProductId, transactionId).Scan(&orderID)
 		if errOrder != nil {
-			log.Fatalf("Unable to execute the query. %v", errOrder)
+			log.Fatalf("Unable to execute the query save order. %v", errOrder)
 		}
-		fmt.Println("orderID", orderID)
 	}
 
-	// inq := o.Products
-	var acc []int64
-	// a := []interface{}{
-	// 	o.Products
-	// }
-	// inq := json.Marshal(o.Products)
-	// fmt.Println("inq", o.Products)
+	var acc []string
+
 	for _, b := range o.Products {
-		// j, err := strconv.Atoi(b.ProductId)
-		// if err != nil {
-		// 	panic(err)
-		// }
-		acc = append(acc, b.ProductId)
+		acc = append(acc, fmt.Sprint(b.ProductId))
 	}
-	fmt.Println("acc", acc)
-	// ac := strings.Trim(strings.Replace(fmt.Sprint(acc), " ", ",", -1), "[]")
-	// price := "0"
-	// stuff := []interface{ o.Products }{}
-	// sql := "SELECT price FROM products where id in (" + acc + ")"
-	// fmt.Println("SQL:", sql)
-	// sqlPrice := fmt.Sprintf("SELECT price FROM products where id in ($)", ac)
-	// stuff := []interface{}{&ac}
-	// sql := "SELECT price FROM products where id in ($1" + strings.Repeat(",$1", len(stuff)-1) + ")"
-	sql := "SELECT price FROM products where id in ($1);"
-	fmt.Println("SQL:", sql)
-	// var t2 = []int{}
-	// for _, i := range ac {
-	// 	j, err := strconv.Atoi(i)
-	// 	if err != nil {
-	// 		panic(err)
-	// 	}
-	// 	t2 = append(t2, j)
-	// }
-	stmt, errPrice := db.Query(sql, pq.Array(acc))
-	if errPrice != nil {
-		log.Fatalf("Unable to execute the query 1. %v", errPrice)
-	}
-	// rows, err := stmt.Query()
-	// if errPrice != nil {
-	// log.Fatalf("Unable to execute the query 2. %v", err)
-	// }
-	fmt.Println("priceRow", stmt)
-	return
+	queryGetPrice := "SELECT price FROM products where id IN (" + strings.Join(acc, ",") + ")"
 
-	// for j := 0; j < len(o.Products); j++ {
-	// 	let := o.Products[j]
-	// 	orderID := 0
-	// 	fmt.Println("let.ProductId", let.ProductId)
-	// 	fmt.Println("transactionId", transactionId)
-	// 	errP := db.QueryRow(getPriceProductSql, let.ProductId, transactionId).Scan(&orderID)
-	// 	if errP != nil {
-	// 		log.Fatalf("Unable to execute the query. %v", errP)
-	// 	}
-	// 	fmt.Println("orderID", orderID)
-	// }
+	stmt, errPrice := db.Query(queryGetPrice)
+	if errPrice != nil {
+		log.Fatalf("Unable to execute the query get price. %v", errPrice)
+	}
+
+	var totalPrice = []int64{}
+	for stmt.Next() {
+		var (
+			price int64
+		)
+		if err := stmt.Scan(&price); err != nil {
+			log.Fatal(err)
+		}
+		totalPrice = append(totalPrice, price)
+	}
+
+	sum := lo.SumBy(totalPrice, func(item int64) int64 {
+		return item
+	})
+
+	queryUpdatePrice := "UPDATE transactions SET amount = " + fmt.Sprint(sum) + " WHERE id = " + fmt.Sprint(transactionId)
+
+	resultUpdatePrice, errQueryUpdatePrice := db.Exec(queryUpdatePrice)
+
+	if errQueryUpdatePrice != nil {
+		log.Fatal(errQueryUpdatePrice)
+	}
+
+	row, errResultUpdatePrice := resultUpdatePrice.RowsAffected()
+	if errResultUpdatePrice != nil {
+		log.Fatal(errResultUpdatePrice)
+	}
+
+	fmt.Printf("query affected %d rows", row)
 
 	res := make(map[string]interface{})
 	res["message"] = "Order created successfully with id " + strconv.Itoa(int(transactionId))
