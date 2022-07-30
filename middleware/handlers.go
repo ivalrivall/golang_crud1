@@ -321,37 +321,37 @@ func UpdateUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(res)
 }
 
-// DeleteUser delete user's detail in the postgres db
-func DeleteUser(w http.ResponseWriter, r *http.Request) {
-	// get the userid from the request params, key is "id"
-	params := mux.Vars(r)
+// // DeleteUser delete user's detail in the postgres db
+// func DeleteUser(w http.ResponseWriter, r *http.Request) {
+// 	// get the userid from the request params, key is "id"
+// 	params := mux.Vars(r)
 
-	// convert the id in string to int
-	id, err := strconv.Atoi(params["id"])
+// 	// convert the id in string to int
+// 	id, err := strconv.Atoi(params["id"])
 
-	if err != nil {
-		log.Fatalf("Unable to convert the string into int.  %v", err)
-		ErrorResponse(500, "Unable to convert the string into int.  %v", w)
-		return
-	}
+// 	if err != nil {
+// 		log.Fatalf("Unable to convert the string into int.  %v", err)
+// 		ErrorResponse(500, "Unable to convert the string into int.  %v", w)
+// 		return
+// 	}
 
-	// call the deleteUser, convert the int to int64
-	deletedRows := deleteUser(int64(id))
+// 	// call the deleteUser, convert the int to int64
+// 	deletedRows := deleteUser(int64(id))
 
-	// format the message string
-	msg := fmt.Sprintf("User updated successfully. Total rows/record affected %v", deletedRows)
+// 	// format the message string
+// 	msg := fmt.Sprintf("User updated successfully. Total rows/record affected %v", deletedRows)
 
-	// format the reponse message
-	res := response{
-		ID:      int64(id),
-		Message: msg,
-	}
+// 	// format the reponse message
+// 	res := response{
+// 		ID:      int64(id),
+// 		Message: msg,
+// 	}
 
-	// send the response
-	w.Header().Add("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(res)
-}
+// 	// send the response
+// 	w.Header().Add("Content-Type", "application/json")
+// 	w.WriteHeader(http.StatusCreated)
+// 	json.NewEncoder(w).Encode(res)
+// }
 
 // CreateOrder create order
 type Products struct {
@@ -360,89 +360,6 @@ type Products struct {
 type Orders struct {
 	Products   []Products `json:"products"`
 	CustomerId int64      `json:"customerId"`
-}
-
-type Value []interface{} // defined in the sql package
-
-func CreateOrder(w http.ResponseWriter, r *http.Request) {
-	var o Orders
-
-	errDecode := json.NewDecoder(r.Body).Decode(&o)
-	if errDecode != nil {
-		http.Error(w, errDecode.Error(), http.StatusBadRequest)
-		return
-	}
-
-	transactionSql := `INSERT INTO transactions (customer_id, amount) VALUES ($1, $2) RETURNING id`
-
-	var transactionId int64
-
-	db := createConnection()
-
-	defer db.Close()
-
-	errTrans := db.QueryRow(transactionSql, o.CustomerId, 0).Scan(&transactionId)
-
-	if errTrans != nil {
-		log.Fatalf("Unable to execute the query. %v", errTrans)
-	}
-
-	querySaveOrder := `INSERT INTO orders (product_id, transaction_id) VALUES ($1, $2) RETURNING id`
-
-	for j := 0; j < len(o.Products); j++ {
-		let := o.Products[j]
-		orderID := 0
-		errOrder := db.QueryRow(querySaveOrder, let.ProductId, transactionId).Scan(&orderID)
-		if errOrder != nil {
-			log.Fatalf("Unable to execute the query save order. %v", errOrder)
-		}
-	}
-
-	var acc []string
-
-	for _, b := range o.Products {
-		acc = append(acc, fmt.Sprint(b.ProductId))
-	}
-	queryGetPrice := "SELECT price FROM products where id IN (" + strings.Join(acc, ",") + ")"
-
-	stmt, errPrice := db.Query(queryGetPrice)
-	if errPrice != nil {
-		log.Fatalf("Unable to execute the query get price. %v", errPrice)
-	}
-
-	var totalPrice = []int64{}
-	for stmt.Next() {
-		var (
-			price int64
-		)
-		if err := stmt.Scan(&price); err != nil {
-			log.Fatal(err)
-		}
-		totalPrice = append(totalPrice, price)
-	}
-
-	sum := lo.SumBy(totalPrice, func(item int64) int64 {
-		return item
-	})
-
-	queryUpdatePrice := "UPDATE transactions SET amount = " + fmt.Sprint(sum) + " WHERE id = " + fmt.Sprint(transactionId)
-
-	resultUpdatePrice, errQueryUpdatePrice := db.Exec(queryUpdatePrice)
-
-	if errQueryUpdatePrice != nil {
-		log.Fatal(errQueryUpdatePrice)
-	}
-
-	row, errResultUpdatePrice := resultUpdatePrice.RowsAffected()
-	if errResultUpdatePrice != nil {
-		log.Fatal(errResultUpdatePrice)
-	}
-
-	fmt.Printf("query affected %d rows", row)
-
-	res := make(map[string]interface{})
-	res["message"] = "Order created successfully with id " + strconv.Itoa(int(transactionId))
-	SuccessRespond(res, w)
 }
 
 /* =================== handler functions ==================== */
@@ -602,6 +519,7 @@ func getProduct(id int64) (models.Product, error) {
 	return product, err
 }
 
+// get product by brand id
 func getProductByBrand(id int64) ([]models.Product, error) {
 	// create the postgres db connection
 	db := createConnection()
@@ -645,110 +563,193 @@ func getProductByBrand(id int64) ([]models.Product, error) {
 	return products, err
 }
 
-// get one user from the DB by its userid
-func getAllUsers() ([]models.Customer, error) {
-	// create the postgres db connection
-	db := createConnection()
+// create order
+func CreateOrder(w http.ResponseWriter, r *http.Request) {
+	var o Orders
 
-	// close the db connection
-	defer db.Close()
-
-	var users []models.Customer
-
-	// create the select sql query
-	sqlStatement := `SELECT * FROM customers`
-
-	// execute the sql statement
-	rows, err := db.Query(sqlStatement)
-
-	if err != nil {
-		log.Fatalf("Unable to execute the query. %v", err)
+	errDecode := json.NewDecoder(r.Body).Decode(&o)
+	if errDecode != nil {
+		http.Error(w, errDecode.Error(), http.StatusBadRequest)
+		return
 	}
 
-	// close the statement
-	defer rows.Close()
+	transactionSql := `INSERT INTO transactions (customer_id, amount) VALUES ($1, $2) RETURNING id`
 
-	// iterate over the rows
-	for rows.Next() {
-		var user models.Customer
+	var transactionId int64
 
-		// unmarshal the row object to user
-		err = rows.Scan(&user.ID, &user.Name)
+	db := createConnection()
 
-		if err != nil {
-			log.Fatalf("Unable to scan the row. %v", err)
+	defer db.Close()
+
+	errTrans := db.QueryRow(transactionSql, o.CustomerId, 0).Scan(&transactionId)
+
+	if errTrans != nil {
+		log.Fatalf("Unable to execute the query. %v", errTrans)
+	}
+
+	querySaveOrder := `INSERT INTO orders (product_id, transaction_id) VALUES ($1, $2) RETURNING id`
+
+	for j := 0; j < len(o.Products); j++ {
+		let := o.Products[j]
+		orderID := 0
+		errOrder := db.QueryRow(querySaveOrder, let.ProductId, transactionId).Scan(&orderID)
+		if errOrder != nil {
+			log.Fatalf("Unable to execute the query save order. %v", errOrder)
 		}
-
-		// append the user in the users slice
-		users = append(users, user)
-
 	}
 
-	// return empty user on error
-	return users, err
+	var acc []string
+
+	for _, b := range o.Products {
+		acc = append(acc, fmt.Sprint(b.ProductId))
+	}
+	queryGetPrice := "SELECT price FROM products where id IN (" + strings.Join(acc, ",") + ")"
+
+	stmt, errPrice := db.Query(queryGetPrice)
+	if errPrice != nil {
+		log.Fatalf("Unable to execute the query get price. %v", errPrice)
+	}
+
+	var totalPrice = []int64{}
+	for stmt.Next() {
+		var (
+			price int64
+		)
+		if err := stmt.Scan(&price); err != nil {
+			log.Fatal(err)
+		}
+		totalPrice = append(totalPrice, price)
+	}
+
+	sum := lo.SumBy(totalPrice, func(item int64) int64 {
+		return item
+	})
+
+	queryUpdatePrice := "UPDATE transactions SET amount = " + fmt.Sprint(sum) + " WHERE id = " + fmt.Sprint(transactionId)
+
+	resultUpdatePrice, errQueryUpdatePrice := db.Exec(queryUpdatePrice)
+
+	if errQueryUpdatePrice != nil {
+		log.Fatal(errQueryUpdatePrice)
+	}
+
+	row, errResultUpdatePrice := resultUpdatePrice.RowsAffected()
+	if errResultUpdatePrice != nil {
+		log.Fatal(errResultUpdatePrice)
+	}
+
+	fmt.Printf("query affected %d rows", row)
+
+	res := make(map[string]interface{})
+	res["message"] = "Order created successfully with id " + strconv.Itoa(int(transactionId))
+	SuccessRespond(res, w)
 }
 
-// update user in the DB
-func updateUser(id int64, user models.Customer) int64 {
+// get detail order
+// // get one user from the DB by its userid
+// func getAllUsers() ([]models.Customer, error) {
+// 	// create the postgres db connection
+// 	db := createConnection()
 
-	// create the postgres db connection
-	db := createConnection()
+// 	// close the db connection
+// 	defer db.Close()
 
-	// close the db connection
-	defer db.Close()
+// 	var users []models.Customer
 
-	// create the update sql query
-	sqlStatement := `UPDATE customers SET name=$2, location=$3, age=$4 WHERE userid=$1`
+// 	// create the select sql query
+// 	sqlStatement := `SELECT * FROM customers`
 
-	// execute the sql statement
-	res, err := db.Exec(sqlStatement, id, user.Name)
+// 	// execute the sql statement
+// 	rows, err := db.Query(sqlStatement)
 
-	if err != nil {
-		log.Fatalf("Unable to execute the query. %v", err)
-	}
+// 	if err != nil {
+// 		log.Fatalf("Unable to execute the query. %v", err)
+// 	}
 
-	// check how many rows affected
-	rowsAffected, err := res.RowsAffected()
+// 	// close the statement
+// 	defer rows.Close()
 
-	if err != nil {
-		log.Fatalf("Error while checking the affected rows. %v", err)
-	}
+// 	// iterate over the rows
+// 	for rows.Next() {
+// 		var user models.Customer
 
-	fmt.Printf("Total rows/record affected %v", rowsAffected)
+// 		// unmarshal the row object to user
+// 		err = rows.Scan(&user.ID, &user.Name)
 
-	return rowsAffected
-}
+// 		if err != nil {
+// 			log.Fatalf("Unable to scan the row. %v", err)
+// 		}
 
-// delete user in the DB
-func deleteUser(id int64) int64 {
+// 		// append the user in the users slice
+// 		users = append(users, user)
 
-	// create the postgres db connection
-	db := createConnection()
+// 	}
 
-	// close the db connection
-	defer db.Close()
+// 	// return empty user on error
+// 	return users, err
+// }
 
-	// create the delete sql query
-	sqlStatement := `DELETE FROM customers WHERE userid=$1`
+// // update user in the DB
+// func updateUser(id int64, user models.Customer) int64 {
 
-	// execute the sql statement
-	res, err := db.Exec(sqlStatement, id)
+// 	// create the postgres db connection
+// 	db := createConnection()
 
-	if err != nil {
-		log.Fatalf("Unable to execute the query. %v", err)
-	}
+// 	// close the db connection
+// 	defer db.Close()
 
-	// check how many rows affected
-	rowsAffected, err := res.RowsAffected()
+// 	// create the update sql query
+// 	sqlStatement := `UPDATE customers SET name=$2, location=$3, age=$4 WHERE userid=$1`
 
-	if err != nil {
-		log.Fatalf("Error while checking the affected rows. %v", err)
-	}
+// 	// execute the sql statement
+// 	res, err := db.Exec(sqlStatement, id, user.Name)
 
-	fmt.Printf("Total rows/record affected %v", rowsAffected)
+// 	if err != nil {
+// 		log.Fatalf("Unable to execute the query. %v", err)
+// 	}
 
-	return rowsAffected
-}
+// 	// check how many rows affected
+// 	rowsAffected, err := res.RowsAffected()
+
+// 	if err != nil {
+// 		log.Fatalf("Error while checking the affected rows. %v", err)
+// 	}
+
+// 	fmt.Printf("Total rows/record affected %v", rowsAffected)
+
+// 	return rowsAffected
+// }
+
+// // delete user in the DB
+// func deleteUser(id int64) int64 {
+
+// 	// create the postgres db connection
+// 	db := createConnection()
+
+// 	// close the db connection
+// 	defer db.Close()
+
+// 	// create the delete sql query
+// 	sqlStatement := `DELETE FROM customers WHERE userid=$1`
+
+// 	// execute the sql statement
+// 	res, err := db.Exec(sqlStatement, id)
+
+// 	if err != nil {
+// 		log.Fatalf("Unable to execute the query. %v", err)
+// 	}
+
+// 	// check how many rows affected
+// 	rowsAffected, err := res.RowsAffected()
+
+// 	if err != nil {
+// 		log.Fatalf("Error while checking the affected rows. %v", err)
+// 	}
+
+// 	fmt.Printf("Total rows/record affected %v", rowsAffected)
+
+// 	return rowsAffected
+// }
 
 // return error response
 func ErrorResponse(statusCode int, error string, writer http.ResponseWriter) {
