@@ -20,10 +20,10 @@ import (
 )
 
 // response format
-type response struct {
-	ID      int64  `json:"id,omitempty"`
-	Message string `json:"message,omitempty"`
-}
+// type response struct {
+// 	ID      int64  `json:"id,omitempty"`
+// 	Message string `json:"message,omitempty"`
+// }
 
 // create connection with postgres db
 func createConnection() *sql.DB {
@@ -87,7 +87,6 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 				message = fmt.Sprintf("%s value must be alphanumeric",
 					err.Field())
 			}
-			break
 		}
 		ErrorResponse(400, message, w)
 		return
@@ -125,7 +124,6 @@ func CreateBrand(w http.ResponseWriter, r *http.Request) {
 				message = fmt.Sprintf("%s value must be alphanumeric",
 					err.Field())
 			}
-			break
 		}
 		ErrorResponse(400, message, w)
 		return
@@ -258,28 +256,9 @@ func GetProductByBrand(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(products)
 }
 
-// GetAllUser will return all the users
-func GetAllUser(w http.ResponseWriter, r *http.Request) {
-
-	// get all the users in the db
-	users, err := getAllUsers()
-
-	if err != nil {
-		log.Fatalf("Unable to get all user. %v", err)
-		ErrorResponse(400, "Unable to get user. %v", w)
-		return
-	}
-
-	// send all the users as response
-	w.Header().Add("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(users)
-}
-
-// UpdateUser update user's detail in the postgres db
-func UpdateUser(w http.ResponseWriter, r *http.Request) {
-
-	// get the userid from the request params, key is "id"
+// GetDetailTransactionById will return detail transaction by id
+func GetDetailTransactionById(w http.ResponseWriter, r *http.Request) {
+	// get the id from the request params, key is "id"
 	params := mux.Vars(r)
 
 	// convert the id type from string to int
@@ -287,39 +266,90 @@ func UpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		log.Fatalf("Unable to convert the string into int.  %v", err)
-		ErrorResponse(500, "Unable to convert the string into int.  %v", w)
+		ErrorResponse(500, "Unable to convert the string into int. %v", w)
 		return
 	}
 
-	// create an empty user of type models.User
-	var user models.Customer
-
-	// decode the json request to user
-	err = json.NewDecoder(r.Body).Decode(&user)
+	// call the getDetailTransactionById function with transaction id to retrieve a detail transaction
+	transaction, order, err := getDetailTransactionById(int64(id))
 
 	if err != nil {
-		log.Fatalf("Unable to decode the request body.  %v", err)
-		ErrorResponse(400, "Unable to decode the request body.  %v", w)
+		log.Fatalf("Unable to get transaction. %v", err)
+		ErrorResponse(400, "Unable to get transaction. %v", w)
 		return
 	}
 
-	// call update user to update the user
-	updatedRows := updateUser(int64(id), user)
-
-	// format the message string
-	msg := fmt.Sprintf("User updated successfully. Total rows/record affected %v", updatedRows)
-
-	// format the response message
-	res := response{
-		ID:      int64(id),
-		Message: msg,
-	}
+	fmt.Println("order", order)
+	fmt.Println("transaction", transaction)
 
 	// send the response
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(res)
+	json.NewEncoder(w).Encode(transaction)
 }
+
+// GetAllUser will return all the users
+// func GetAllUser(w http.ResponseWriter, r *http.Request) {
+
+// 	// get all the users in the db
+// 	users, err := getAllUsers()
+
+// 	if err != nil {
+// 		log.Fatalf("Unable to get all user. %v", err)
+// 		ErrorResponse(400, "Unable to get user. %v", w)
+// 		return
+// 	}
+
+// 	// send all the users as response
+// 	w.Header().Add("Content-Type", "application/json")
+// 	w.WriteHeader(http.StatusCreated)
+// 	json.NewEncoder(w).Encode(users)
+// }
+
+// UpdateUser update user's detail in the postgres db
+// func UpdateUser(w http.ResponseWriter, r *http.Request) {
+
+// 	// get the userid from the request params, key is "id"
+// 	params := mux.Vars(r)
+
+// 	// convert the id type from string to int
+// 	id, err := strconv.Atoi(params["id"])
+
+// 	if err != nil {
+// 		log.Fatalf("Unable to convert the string into int.  %v", err)
+// 		ErrorResponse(500, "Unable to convert the string into int.  %v", w)
+// 		return
+// 	}
+
+// 	// create an empty user of type models.User
+// 	var user models.Customer
+
+// 	// decode the json request to user
+// 	err = json.NewDecoder(r.Body).Decode(&user)
+
+// 	if err != nil {
+// 		log.Fatalf("Unable to decode the request body.  %v", err)
+// 		ErrorResponse(400, "Unable to decode the request body.  %v", w)
+// 		return
+// 	}
+
+// 	// call update user to update the user
+// 	updatedRows := updateUser(int64(id), user)
+
+// 	// format the message string
+// 	msg := fmt.Sprintf("User updated successfully. Total rows/record affected %v", updatedRows)
+
+// 	// format the response message
+// 	res := response{
+// 		ID:      int64(id),
+// 		Message: msg,
+// 	}
+
+// 	// send the response
+// 	w.Header().Add("Content-Type", "application/json")
+// 	w.WriteHeader(http.StatusCreated)
+// 	json.NewEncoder(w).Encode(res)
+// }
 
 // // DeleteUser delete user's detail in the postgres db
 // func DeleteUser(w http.ResponseWriter, r *http.Request) {
@@ -353,13 +383,94 @@ func UpdateUser(w http.ResponseWriter, r *http.Request) {
 // 	json.NewEncoder(w).Encode(res)
 // }
 
-// CreateOrder create order
+// create order
 type Products struct {
 	ProductId int64 `json:"productId"`
 }
 type Orders struct {
 	Products   []Products `json:"products"`
 	CustomerId int64      `json:"customerId"`
+}
+
+func CreateOrder(w http.ResponseWriter, r *http.Request) {
+	var o Orders
+
+	errDecode := json.NewDecoder(r.Body).Decode(&o)
+	if errDecode != nil {
+		http.Error(w, errDecode.Error(), http.StatusBadRequest)
+		return
+	}
+
+	transactionSql := `INSERT INTO transactions (customer_id, amount) VALUES ($1, $2) RETURNING id`
+
+	var transactionId int64
+
+	db := createConnection()
+
+	defer db.Close()
+
+	errTrans := db.QueryRow(transactionSql, o.CustomerId, 0).Scan(&transactionId)
+
+	if errTrans != nil {
+		log.Fatalf("Unable to execute the query. %v", errTrans)
+	}
+
+	querySaveOrder := `INSERT INTO orders (product_id, transaction_id) VALUES ($1, $2) RETURNING id`
+
+	for j := 0; j < len(o.Products); j++ {
+		let := o.Products[j]
+		orderID := 0
+		errOrder := db.QueryRow(querySaveOrder, let.ProductId, transactionId).Scan(&orderID)
+		if errOrder != nil {
+			log.Fatalf("Unable to execute the query save order. %v", errOrder)
+		}
+	}
+
+	var acc []string
+
+	for _, b := range o.Products {
+		acc = append(acc, fmt.Sprint(b.ProductId))
+	}
+	queryGetPrice := "SELECT price FROM products where id IN (" + strings.Join(acc, ",") + ")"
+
+	stmt, errPrice := db.Query(queryGetPrice)
+	if errPrice != nil {
+		log.Fatalf("Unable to execute the query get price. %v", errPrice)
+	}
+
+	var totalPrice = []int64{}
+	for stmt.Next() {
+		var (
+			price int64
+		)
+		if err := stmt.Scan(&price); err != nil {
+			log.Fatal(err)
+		}
+		totalPrice = append(totalPrice, price)
+	}
+
+	sum := lo.SumBy(totalPrice, func(item int64) int64 {
+		return item
+	})
+
+	queryUpdatePrice := "UPDATE transactions SET amount = " + fmt.Sprint(sum) + " WHERE id = " + fmt.Sprint(transactionId)
+
+	resultUpdatePrice, errQueryUpdatePrice := db.Exec(queryUpdatePrice)
+
+	if errQueryUpdatePrice != nil {
+		log.Fatal(errQueryUpdatePrice)
+	}
+
+	row, errResultUpdatePrice := resultUpdatePrice.RowsAffected()
+	if errResultUpdatePrice != nil {
+		log.Fatal(errResultUpdatePrice)
+	}
+
+	fmt.Printf("query affected %d rows", row)
+
+	res := make(map[string]interface{})
+	res["message"] = "Order created successfully with id " + strconv.Itoa(int(transactionId))
+	SuccessRespond(res, w)
 }
 
 /* =================== handler functions ==================== */
@@ -563,89 +674,52 @@ func getProductByBrand(id int64) ([]models.Product, error) {
 	return products, err
 }
 
-// create order
-func CreateOrder(w http.ResponseWriter, r *http.Request) {
-	var o Orders
-
-	errDecode := json.NewDecoder(r.Body).Decode(&o)
-	if errDecode != nil {
-		http.Error(w, errDecode.Error(), http.StatusBadRequest)
-		return
-	}
-
-	transactionSql := `INSERT INTO transactions (customer_id, amount) VALUES ($1, $2) RETURNING id`
-
-	var transactionId int64
-
+// get detail order
+func getDetailTransactionById(id int64) (models.Transaction, models.Order, error) {
+	// create the postgres db connection
 	db := createConnection()
 
+	// close the db connection
 	defer db.Close()
 
-	errTrans := db.QueryRow(transactionSql, o.CustomerId, 0).Scan(&transactionId)
+	// var transaction models.Transaction
 
-	if errTrans != nil {
-		log.Fatalf("Unable to execute the query. %v", errTrans)
-	}
+	// create the select sql query
+	sqlStatement := `
+		SELECT t.id, t.customer_id, t.amount
+		FROM transactions t
+		LEFT JOIN orders o
+		ON o.transaction_id = t.id
+		JOIN products p
+		ON p.id = o.product_id
+		WHERE t.id=$1
+		LIMIT 1
+	`
 
-	querySaveOrder := `INSERT INTO orders (product_id, transaction_id) VALUES ($1, $2) RETURNING id`
+	rows, err := db.Query(sqlStatement, id)
+	checkErr(err)
 
-	for j := 0; j < len(o.Products); j++ {
-		let := o.Products[j]
-		orderID := 0
-		errOrder := db.QueryRow(querySaveOrder, let.ProductId, transactionId).Scan(&orderID)
-		if errOrder != nil {
-			log.Fatalf("Unable to execute the query save order. %v", errOrder)
-		}
-	}
-
-	var acc []string
-
-	for _, b := range o.Products {
-		acc = append(acc, fmt.Sprint(b.ProductId))
-	}
-	queryGetPrice := "SELECT price FROM products where id IN (" + strings.Join(acc, ",") + ")"
-
-	stmt, errPrice := db.Query(queryGetPrice)
-	if errPrice != nil {
-		log.Fatalf("Unable to execute the query get price. %v", errPrice)
-	}
-
-	var totalPrice = []int64{}
-	for stmt.Next() {
-		var (
-			price int64
+	transaction := models.Transaction{}
+	for rows.Next() {
+		// order := &models.Order{}
+		// product := &models.Product{}
+		er := rows.Scan(
+			&transaction.ID,
+			&transaction.CustomerId,
+			&transaction.Amount,
+			// &order.ProductId,
+			// &product.Name,
 		)
-		if err := stmt.Scan(&price); err != nil {
-			log.Fatal(err)
-		}
-		totalPrice = append(totalPrice, price)
+		// json.Unmarshal(&transaction)
+		checkErr(er)
+		transaction.Orders = append(transaction.Orders)
 	}
 
-	sum := lo.SumBy(totalPrice, func(item int64) int64 {
-		return item
-	})
+	// fmt.Println("transaction", transaction)
 
-	queryUpdatePrice := "UPDATE transactions SET amount = " + fmt.Sprint(sum) + " WHERE id = " + fmt.Sprint(transactionId)
-
-	resultUpdatePrice, errQueryUpdatePrice := db.Exec(queryUpdatePrice)
-
-	if errQueryUpdatePrice != nil {
-		log.Fatal(errQueryUpdatePrice)
-	}
-
-	row, errResultUpdatePrice := resultUpdatePrice.RowsAffected()
-	if errResultUpdatePrice != nil {
-		log.Fatal(errResultUpdatePrice)
-	}
-
-	fmt.Printf("query affected %d rows", row)
-
-	res := make(map[string]interface{})
-	res["message"] = "Order created successfully with id " + strconv.Itoa(int(transactionId))
-	SuccessRespond(res, w)
+	return transaction, models.Order{}, nil
 }
 
-// get detail order
 // // get one user from the DB by its userid
 // func getAllUsers() ([]models.Customer, error) {
 // 	// create the postgres db connection
@@ -785,4 +859,10 @@ func SuccessRespond(fields map[string]interface{}, writer http.ResponseWriter) {
 	writer.Header().Set("Content-Type", "application/json")
 	writer.WriteHeader(http.StatusOK)
 	writer.Write(message)
+}
+
+func checkErr(err error) {
+	if err != nil {
+		panic(err)
+	}
 }

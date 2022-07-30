@@ -21,10 +21,11 @@ type Customer struct {
 }
 
 type Transaction struct {
-	ID         int64  `json:"id"`
-	CustomerId int64  `json:"customer_id"`
-	Amount     string `json:"amount"`
-	CreatedAt  string `json:"created_at"`
+	ID         int64   `json:"id"`
+	CustomerId int64   `json:"customer_id"`
+	Amount     string  `json:"amount"`
+	CreatedAt  string  `json:"created_at"`
+	Orders     []Order `json:"orders" db:"order_id"`
 }
 
 type Order struct {
